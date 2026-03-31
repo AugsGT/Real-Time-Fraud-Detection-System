@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FraudShield | Real-Time Fraud Detection</title>
+    <meta name="description" content="Real-time fraud detection dashboard — monitor transactions, anomalies, and rule alerts instantly.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #0f1629;
+            --bg-card: rgba(255,255,255,0.04);
+            --bg-card-hover: rgba(255,255,255,0.07);
+            --border: rgba(255,255,255,0.08);
+            --border-strong: rgba(255,255,255,0.12);
+            --text-primary: #f0f4ff;
+            --text-secondary: #8899bb;
+            --text-muted: #4a5568;
+            --accent: #6366f1;
+            --accent-glow: rgba(99,102,241,0.35);
+            --green: #22d3a5;
+            --green-dim: rgba(34,211,165,0.15);
+            --red: #f43f5e;
+            --red-dim: rgba(244,63,94,0.15);
+            --orange: #fb923c;
+            --orange-dim: rgba(251,146,60,0.15);
+            --yellow: #facc15;
+            --yellow-dim: rgba(250,204,21,0.12);
+            --purple: #a855f7;
+            --purple-dim: rgba(168,85,247,0.15);
+            --blue: #38bdf8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ─── HEADER ─── */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            background: rgba(10,14,26,0.85);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: -0.5px;
+        }
+        .logo-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+        }
+        .logo span { color: var(--accent); }
+        .header-right { display: flex; align-items: center; gap: 1.5rem; }
+        .status-pill {
+            display: flex; align-items: center; gap: 6px;
+            padding: 5px 12px;
+            border-radius: 100px;
+            background: var(--green-dim);
+            border: 1px solid rgba(34,211,165,0.25);
+            font-size: 0.75rem; font-weight: 600; color: var(--green);
+        }
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse-dot 2s infinite;
+        }
+        @keyframes pulse-dot {
+            0%,100% { opacity:1; transform: scale(1); }
+            50% { opacity:0.5; transform: scale(0.8); }
+        }
+        #live-time { font-size: 0.8rem; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
+
+        /* ─── MAIN LAYOUT ─── */
+        main {
+            position: relative; z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* ─── STATS GRID ─── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .stat-card:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            border-radius: 16px 16px 0 0;
+        }
+        .stat-card.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+        .stat-card.red::before { background: linear-gradient(90deg, var(--red), transparent); }
+        .stat-card.orange::before { background: linear-gradient(90deg, var(--orange), transparent); }
+        .stat-card.purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
+        .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), transparent); }
+        .stat-card.yellow::before { background: linear-gradient(90deg, var(--yellow), transparent); }
+
+        .stat-label { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 2rem; font-weight: 800; line-height: 1; font-family: 'JetBrains Mono', monospace; }
+        .stat-value.green { color: var(--green); }
+        .stat-value.red { color: var(--red); }
+        .stat-value.orange { color: var(--orange); }
+        .stat-value.purple { color: var(--purple); }
+        .stat-value.blue { color: var(--blue); }
+        .stat-value.yellow { color: var(--yellow); }
+        .stat-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+        /* ─── CONTENT GRID ─── */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 1100px) { .content-grid { grid-template-columns: 1fr; } }
+
+        /* ─── PANEL ─── */
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .panel-title { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .panel-body { padding: 1.5rem; }
+
+        /* ─── REFRESH BADGE ─── */
+        .refresh-badge {
+            font-size: 0.7rem; font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 100px;
+            background: rgba(99,102,241,0.15);
+            color: var(--accent);
+            border: 1px solid rgba(99,102,241,0.25);
+        }
+
+        /* ─── ALERTS TABLE ─── */
+        .alerts-table { width: 100%; border-collapse: collapse; }
+        .alerts-table th {
+            text-align: left; font-size: 0.7rem; font-weight: 600;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em;
+            padding: 0 1rem 0.75rem;
+        }
+        .alerts-table td {
+            padding: 0.85rem 1rem;
+            font-size: 0.82rem;
+            border-top: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .alerts-table tr { transition: background 0.15s; }
+        .alerts-table tbody tr:hover { background: var(--bg-card-hover); }
+        .alerts-table tr.new-alert { animation: flash-row 1.5s ease-out; }
+        @keyframes flash-row {
+            0% { background: rgba(99,102,241,0.15); }
+            100% { background: transparent; }
+        }
+
+        /* ─── SEVERITY BADGES ─── */
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 100px;
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .badge.CRITICAL { background: var(--red-dim); color: var(--red); border: 1px solid rgba(244,63,94,0.3); }
+        .badge.HIGH { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+        .badge.MEDIUM { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(250,204,21,0.25); }
+        .badge.LOW { background: rgba(100,116,139,0.15); color: #94a3b8; border: 1px solid rgba(100,116,139,0.25); }
+        .badge::before { content: '●'; font-size: 7px; }
+
+        .type-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 6px;
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+        }
+        .type-badge.RULE { background: var(--purple-dim); color: var(--purple); }
+        .type-badge.ANOMALY { background: rgba(56,189,248,0.12); color: var(--blue); }
+        .type-badge.BOTH { background: var(--red-dim); color: var(--red); }
+
+        .score-bar {
+            display: flex; align-items: center; gap: 8px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+        }
+        .score-track { width: 60px; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+        .score-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+
+        .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+        .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+
+        /* ─── SIMULATION PANEL ─── */
+        .sim-section { margin-bottom: 1.5rem; }
+        .sim-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; }
+        .sim-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+        .sim-btn {
+            padding: 0.65rem 0.75rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.8rem; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .sim-btn:hover { border-color: var(--accent); background: rgba(99,102,241,0.1); color: var(--accent); }
+        .sim-btn:active { transform: scale(0.97); }
+        .sim-btn.scenario { border-color: rgba(168,85,247,0.3); }
+        .sim-btn.scenario:hover { border-color: var(--purple); background: var(--purple-dim); color: var(--purple); }
+        .sim-btn.danger-btn { border-color: rgba(244,63,94,0.3); }
+        .sim-btn.danger-btn:hover { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+
+        .form-group { margin-bottom: 0.75rem; }
+        .form-label { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem; display: block; text-transform: uppercase; letter-spacing: 0.06em; }
+        .form-input, .form-select {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            padding: 0.6rem 0.75rem;
+            font-size: 0.82rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus, .form-select:focus { border-color: var(--accent); }
+        .form-select option { background: #1a2035; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+
+        /* ─── RULES PANEL ─── */
+        .rule-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.85rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .rule-item:last-child { border-bottom: none; }
+        .rule-info {}
+        .rule-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+        .rule-desc { font-size: 0.72rem; color: var(--text-secondary); }
+        .rule-actions { display: flex; gap: 8px; align-items: center; }
+        .toggle-btn {
+            width: 40px; height: 22px;
+            border-radius: 11px;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s;
+        }
+        .toggle-btn::after {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            background: white;
+            top: 3px;
+            transition: left 0.2s;
+        }
+        .toggle-btn.on { background: var(--green); }
+        .toggle-btn.on::after { left: 21px; }
+        .toggle-btn.off { background: var(--text-muted); }
+        .toggle-btn.off::after { left: 3px; }
+        .del-btn {
+            width: 28px; height: 28px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .del-btn:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+        /* ─── NOTIFICATIONS ─── */
+        #toast-container {
+            position: fixed; bottom: 1.5rem; right: 1.5rem;
+            z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;
+        }
+        .toast {
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            font-size: 0.82rem; font-weight: 600;
+            backdrop-filter: blur(12px);
+            animation: slide-in 0.3s ease;
+            max-width: 320px;
+        }
+        @keyframes slide-in {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast.success { background: rgba(34,211,165,0.15); border: 1px solid rgba(34,211,165,0.3); color: var(--green); }
+        .toast.error { background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.3); color: var(--red); }
+        .toast.info { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); color: var(--accent); }
+
+        /* ─── RULE FORM ─── */
+        .add-rule-form {
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px dashed var(--border);
+            margin-top: 1rem;
+        }
+        .add-rule-form.hidden { display: none; }
+        .primary-btn {
+            width: 100%;
+            padding: 0.65rem;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            color: white; font-weight: 700; font-size: 0.85rem;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            margin-top: 0.6rem;
+        }
+        .primary-btn:hover { opacity: 0.9; }
+        .primary-btn:active { transform: scale(0.98); }
+
+        .amount-mono { font-family: 'JetBrains Mono', monospace; font-size: 0.88rem; font-weight: 600; }
+
+        /* ─── SCROLLBAR ─── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <div class="logo-icon">🛡️</div>
+        Fraud<span>Shield</span>
+    </div>
+    <div class="header-right">
+        <div class="status-pill">
+            <div class="status-dot"></div>
+            Live Detection
+        </div>
+        <div id="live-time">--:--:--</div>
+    </div>
+</header>
+
+<main>
+    <!-- Stats Cards -->
+    <div class="stats-grid" id="stats-grid">
+        <div class="stat-card blue">
+            <div class="stat-label">Total Transactions</div>
+            <div class="stat-value blue" id="stat-total">—</div>
+            <div class="stat-sub">processed</div>
+        </div>
+        <div class="stat-card red">
+            <div class="stat-label">Fraud Alerts</div>
+            <div class="stat-value red" id="stat-alerts">—</div>
+            <div class="stat-sub" id="stat-unresolved">— unresolved</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-label">Detection Rate</div>
+            <div class="stat-value orange" id="stat-rate">—</div>
+            <div class="stat-sub">of transactions flagged</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-label">Critical Alerts</div>
+            <div class="stat-value purple" id="stat-critical">—</div>
+            <div class="stat-sub">require immediate action</div>
+        </div>
+        <div class="stat-card yellow">
+            <div class="stat-label">Avg Anomaly Score</div>
+            <div class="stat-value yellow" id="stat-score">—</div>
+            <div class="stat-sub">ML confidence</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-label">Alerts (24h)</div>
+            <div class="stat-value green" id="stat-24h">—</div>
+            <div class="stat-sub">last 24 hours</div>
+        </div>
+    </div>
+
+    <div class="content-grid">
+        <!-- Live Alerts Table -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">🔴 Live Fraud Alerts</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span class="refresh-badge">↻ Auto-refresh 3s</span>
+                    <select class="form-select" id="severity-filter" style="width:120px;padding:4px 8px;font-size:0.75rem">
+                        <option value="">All Severity</option>
+                        <option>CRITICAL</option>
+                        <option>HIGH</option>
+                        <option>MEDIUM</option>
+                        <option>LOW</option>
+                    </select>
+                </div>
+            </div>
+            <div style="overflow-x:auto">
+                <table class="alerts-table">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Account</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Rules Triggered</th>
+                            <th>ML Score</th>
+                            <th>Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alerts-tbody">
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <div class="icon">🔍</div>
+                                    <div>Waiting for alerts...</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+            <!-- Simulation Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">⚡ Simulation</div>
+                </div>
+                <div class="panel-body">
+                    <div class="sim-section">
+                        <div class="sim-label">Quick Inject</div>
+                        <div class="form-group">
+                            <label class="form-label">Transaction Count</label>
+                            <input type="number" class="form-input" id="sim-count" value="50" min="1" max="500">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fraud Ratio</label>
+                            <input type="range" id="sim-ratio" min="0" max="1" step="0.05" value="0.2"
+                                   style="width:100%;accent-color:var(--accent)">
+                            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px">
+                                <span id="sim-ratio-label">20%</span> transactions will be fraudulent
+                            </div>
+                        </div>
+                        <button class="sim-btn" id="btn-simulate" style="width:100%;justify-content:center;border-color:rgba(99,102,241,0.4)">
+                            ▶ Run Simulation
+                        </button>
+                    </div>
+                    <div class="sim-section">
+                        <div class="sim-label">Fraud Scenarios</div>
+                        <div class="sim-row">
+                            <button class="sim-btn scenario" onclick="runScenario('card-testing')">💳 Card Testing</button>
+                            <button class="sim-btn scenario" onclick="runScenario('account-takeover')">🔓 Account Takeover</button>
+                            <button class="sim-btn scenario" onclick="runScenario('geo-velocity')" style="grid-column:span 2">✈️ Impossible Travel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rules Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">⚙️ Detection Rules</div>
+                    <button class="sim-btn" id="btn-add-rule" style="padding:5px 12px;font-size:0.75rem">+ Add Rule</button>
+                </div>
+                <div class="panel-body" style="padding:0.5rem 1.25rem">
+                    <div id="rules-list">
+                        <div class="empty-state" style="padding:1.5rem">Loading rules...</div>
+                    </div>
+                    <div class="add-rule-form hidden" id="add-rule-form">
+                        <div class="form-group">
+                            <label class="form-label">Rule Name</label>
+                            <input class="form-input" id="rule-name" placeholder="My Custom Rule">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Type</label>
+                            <select class="form-select" id="rule-type">
+                                <option value="AMOUNT_THRESHOLD">Amount Threshold</option>
+                                <option value="FREQUENCY">Frequency</option>
+                                <option value="GEO_VELOCITY">Geo Velocity</option>
+                                <option value="CHANNEL_RISK">Channel Risk</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Params (JSON)</label>
+                            <input class="form-input" id="rule-params" placeholder='{"maxAmount": 3000}'>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <input class="form-input" id="rule-desc" placeholder="What does this rule detect?">
+                        </div>
+                        <button class="primary-btn" onclick="createRule()">✓ Create Rule</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div id="toast-container"></div>
+
+<script>
+    const API = '';
+    let knownAlertIds = new Set();
+    let currentSeverityFilter = '';
+
+    // Live clock
+    function updateClock() {
+        document.getElementById('live-time').textContent = new Date().toLocaleTimeString();
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ─── Stats ───
+    async function loadStats() {
+        try {
+            const r = await fetch(`${API}/api/alerts/stats`);
+            const s = await r.json();
+            document.getElementById('stat-total').textContent = s.totalTransactions.toLocaleString();
+            document.getElementById('stat-alerts').textContent = s.totalAlerts.toLocaleString();
+            document.getElementById('stat-unresolved').textContent = `${s.unresolvedAlerts} unresolved`;
+            document.getElementById('stat-rate').textContent = s.detectionRate.toFixed(1) + '%';
+            document.getElementById('stat-critical').textContent = s.criticalAlerts.toLocaleString();
+            document.getElementById('stat-score').textContent = s.avgAnomalyScore ? s.avgAnomalyScore.toFixed(3) : '—';
+            document.getElementById('stat-24h').textContent = s.alertsLast24h.toLocaleString();
+        } catch(e) { /* silent */ }
+    }
+
+    // ─── Alerts ───
+    async function loadAlerts() {
+        try {
+            let url = `${API}/api/alerts?size=50&sort=createdAt,desc`;
+            if (currentSeverityFilter) url += `&severity=${currentSeverityFilter}`;
+            const r = await fetch(url);
+            const data = await r.json();
+            const alerts = data.content || [];
+            renderAlerts(alerts);
+        } catch(e) { /* silent */ }
+    }
+
+    function renderAlerts(alerts) {
+        const tbody = document.getElementById('alerts-tbody');
+        if (!alerts.length) {
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div><div>No fraud alerts yet. Run a simulation!</div></div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = alerts.map(a => {
+            const isNew = !knownAlertIds.has(a.id);
+            if (isNew) knownAlertIds.add(a.id);
+            const score = a.anomalyScore != null ? a.anomalyScore : 0;
+            const scoreColor = score > 0.8 ? '#f43f5e' : score > 0.65 ? '#fb923c' : '#22d3a5';
+            const timeAgo = formatTimeAgo(a.createdAt);
+            const rules = a.triggeredRules || '—';
+            return `<tr class="${isNew ? 'new-alert' : ''}">
+                <td><span class="badge ${a.severity}">${a.severity}</span></td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:0.78rem">${a.accountId}</td>
+                <td><span class="amount-mono">$${(a.transactionAmount||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></td>
+                <td><span class="type-badge ${a.alertType}">${a.alertType}</span></td>
+                <td style="font-size:0.75rem;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${rules}">${rules}</td>
+                <td>
+                    <div class="score-bar">
+                        <div class="score-track"><div class="score-fill" style="width:${(score*100).toFixed(0)}%;background:${scoreColor}"></div></div>
+                        <span style="color:${scoreColor}">${score.toFixed(3)}</span>
+                    </div>
+                </td>
+                <td style="font-size:0.75rem;color:var(--text-secondary)">${timeAgo}</td>
+                <td>
+                    ${!a.resolved ? `<button onclick="resolveAlert(${a.id})" style="border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:0.75rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);transition:all 0.2s" onmouseenter="this.style.color='var(--green)';this.style.borderColor='var(--green)'" onmouseleave="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">✓ Resolve</button>`
+                    : `<span style="font-size:0.72rem;color:var(--green)">✓ Resolved</span>`}
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function formatTimeAgo(ts) {
+        const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+        if (diff < 60) return `${Math.floor(diff)}s ago`;
+        if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+        return new Date(ts).toLocaleDateString();
+    }
+
+    async function resolveAlert(id) {
+        try {
+            await fetch(`${API}/api/alerts/${id}/resolve`, { method: 'PUT' });
+            toast('Alert resolved ✓', 'success');
+            loadAlerts(); loadStats();
+        } catch(e) { toast('Failed to resolve alert', 'error'); }
+    }
+
+    // ─── Severity filter ───
+    document.getElementById('severity-filter').addEventListener('change', function() {
+        currentSeverityFilter = this.value;
+        loadAlerts();
+    });
+
+    // ─── Rules ───
+    async function loadRules() {
+        try {
+            const r = await fetch(`${API}/api/rules`);
+            const rules = await r.json();
+            const container = document.getElementById('rules-list');
+            if (!rules.length) {
+                container.innerHTML = '<div class="empty-state" style="padding:1.5rem">No rules configured</div>';
+                return;
+            }
+            container.innerHTML = rules.map(rule => `
+                <div class="rule-item">
+                    <div class="rule-info">
+                        <div class="rule-name">${rule.name}</div>
+                        <div class="rule-desc">${rule.description || rule.ruleType}</div>
+                    </div>
+                    <div class="rule-actions">
+                        <button class="toggle-btn ${rule.enabled ? 'on' : 'off'}" onclick="toggleRule(${rule.id})" title="${rule.enabled ? 'Disable' : 'Enable'}"></button>
+                        <button class="del-btn" onclick="deleteRule(${rule.id})" title="Delete">✕</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch(e) { /* silent */ }
+    }
+
+    async function toggleRule(id) {
+        try {
+            await fetch(`${API}/api/rules/${id}/toggle`, { method: 'PUT' });
+            toast('Rule updated', 'info');
+            loadRules();
+        } catch(e) { toast('Failed to update rule', 'error'); }
+    }
+
+    async function deleteRule(id) {
+        if (!confirm('Delete this rule?')) return;
+        try {
+            await fetch(`${API}/api/rules/${id}`, { method: 'DELETE' });
+            toast('Rule deleted', 'success');
+            loadRules();
+        } catch(e) { toast('Failed to delete rule', 'error'); }
+    }
+
+    document.getElementById('btn-add-rule').addEventListener('click', () => {
+        const form = document.getElementById('add-rule-form');
+        form.classList.toggle('hidden');
+        document.getElementById('btn-add-rule').textContent = form.classList.contains('hidden') ? '+ Add Rule' : '✕ Cancel';
+    });
+
+    async function createRule() {
+        const body = {
+            name: document.getElementById('rule-name').value,
+            ruleType: document.getElementById('rule-type').value,
+            paramJson: document.getElementById('rule-params').value,
+            description: document.getElementById('rule-desc').value,
+            enabled: true
+        };
+        if (!body.name || !body.paramJson) { toast('Name and params are required', 'error'); return; }
+        try {
+            const r = await fetch(`${API}/api/rules`, {
+                method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+            });
+            if (r.ok) {
+                toast('Rule created ✓', 'success');
+                document.getElementById('add-rule-form').classList.add('hidden');
+                document.getElementById('btn-add-rule').textContent = '+ Add Rule';
+                loadRules();
+            } else {
+                const err = await r.json();
+                toast('Error: ' + (err.message || 'Conflict'), 'error');
+            }
+        } catch(e) { toast('Failed to create rule', 'error'); }
+    }
+
+    // ─── Simulation ───
+    document.getElementById('sim-ratio').addEventListener('input', function() {
+        document.getElementById('sim-ratio-label').textContent = (this.value * 100).toFixed(0) + '%';
+    });
+
+    document.getElementById('btn-simulate').addEventListener('click', async () => {
+        const count = parseInt(document.getElementById('sim-count').value, 10);
+        const fraudRatio = parseFloat(document.getElementById('sim-ratio').value);
+        const btn = document.getElementById('btn-simulate');
+        btn.textContent = '⏳ Processing...';
+        btn.disabled = true;
+        try {
+            const r = await fetch(`${API}/api/simulate`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ count, fraudRatio })
+            });
+            const data = await r.json();
+            toast(`✓ Injected ${data.injected} transactions (${data.fraud} fraud)`, 'success');
+            setTimeout(() => { loadStats(); loadAlerts(); }, 2000);
+        } catch(e) {
+            toast('Simulation failed — is the server running?', 'error');
+        } finally {
+            btn.textContent = '▶ Run Simulation';
+            btn.disabled = false;
+        }
+    });
+
+    async function runScenario(name) {
+        toast(`Running "${name}" scenario...`, 'info');
+        try {
+            const r = await fetch(`${API}/api/simulate/scenario/${name}`, { method: 'POST' });
+            const data = await r.json();
+            toast(`✓ Scenario complete. ${data.transactions} transactions injected.`, 'success');
+            setTimeout(() => { loadStats(); loadAlerts(); }, 2500);
+        } catch(e) {
+            toast('Scenario failed — is the server running?', 'error');
+        }
+    }
+
+    // ─── Toast ───
+    function toast(msg, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+    }
+
+    // ─── Auto-refresh ───
+    function refresh() { loadAlerts(); loadStats(); }
+    setInterval(refresh, 3000);
+
+    // ─── Init ───
+    loadStats();
+    loadAlerts();
+    loadRules();
+</script>
+</body>
+</html>
